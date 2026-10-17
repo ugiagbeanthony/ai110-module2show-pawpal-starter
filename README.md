@@ -42,6 +42,10 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## Implementation summary
+
+`Task` stores a care activity's description, duration, frequency, priority, and completion status. `Pet` owns its care tasks, and `Owner` manages multiple pets and returns their combined tasks through `get_all_tasks()`. `Scheduler` retrieves tasks through that owner method, sorts pending tasks by priority and duration, and selects tasks that fit a time budget. Run `python main.py` for a small terminal demo; the Streamlit interface is not yet connected to this backend.
+
 ## 🖥️ Sample Output
 
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
@@ -65,6 +69,13 @@ pytest --cov
 ```
 
 Sample test output:
+
+Today's Schedule
+Owner: Jordan | Available time: 45 minutes
+- Serve breakfast (5 min, daily, high priority, pending)
+- Morning walk (30 min, daily, high priority, pending)
+- Brush coat (10 min, weekly, low priority, pending)
+Total scheduled: 45 minutes
 
 ```
 # Paste your pytest output here

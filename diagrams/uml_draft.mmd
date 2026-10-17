@@ -1,11 +1,12 @@
 classDiagram
-    class Owner {
-        +name: str
-        +pets: list~Pet~
-        +preferences: list~str~
-        +add_pet(pet: Pet) None
-        +remove_pet(pet: Pet) None
-        +create_daily_plan(pet: Pet, available_minutes: int) DailyPlan
+    class Task {
+        +description: str
+        +duration_minutes: int
+        +frequency: str
+        +is_completed: bool
+        +priority: str
+        +mark_complete() None
+        +describe() str
     }
 
     class Pet {
@@ -16,24 +17,22 @@ classDiagram
         +remove_task(task: Task) None
     }
 
-    class Task {
-        +title: str
-        +duration_minutes: int
-        +priority: str
-        +describe() str
+    class Owner {
+        +name: str
+        +pets: list~Pet~
+        +add_pet(pet: Pet) None
+        +remove_pet(pet: Pet) None
+        +get_all_tasks() list~Task~
     }
 
-    class DailyPlan {
-        +pet: Pet
-        +available_minutes: int
-        +tasks: list~Task~
-        +explanations: list~str~
-        +build_schedule() None
-        +total_duration() int
-        +explain_schedule() list~str~
+    class Scheduler {
+        +owner: Owner
+        +get_all_tasks() list~Task~
+        +organize_tasks() list~Task~
+        +create_schedule(available_minutes: int) list~Task~
+        +mark_complete(task: Task) None
     }
 
     Owner "1" o-- "0..*" Pet : cares for
-    Pet "1" o-- "0..*" Task : needs
-    DailyPlan "0..*" --> "1" Pet : plans for
-    DailyPlan "0..*" --> "0..*" Task : includes
+    Pet "1" o-- "0..*" Task : has
+    Scheduler --> Owner : retrieves all pets' tasks from

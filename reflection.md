@@ -14,7 +14,7 @@ My initial design has four classes: `Owner`, `Pet`, `Task`, and `DailyPlan`. An 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
-Prediction: I expect the design to stay mostly the same, but I may adjust where the scheduling behavior belongs as I implement it. For example, if building a daily plan becomes too much responsibility for `DailyPlan`, I may move the selection logic into a separate scheduler. I would make that change to keep the plan focused on storing and explaining results while keeping scheduling rules easy to test.
+The design changed after reviewing the skeleton and refining the requirements. I replaced `DailyPlan` with a `Scheduler` that reads tasks through `Owner.get_all_tasks()`, so scheduling considers every pet rather than just one. I also expanded `Task` to track its description, duration, frequency, completion status, and priority. The scheduler orders pending tasks by priority and duration, selects tasks that fit the available time, and can mark an owner's task complete. This makes the multi-pet data flow explicit and keeps pet/task storage separate from scheduling behavior.
 
 ---
 
@@ -39,10 +39,14 @@ Prediction: I expect the design to stay mostly the same, but I may adjust where 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used AI to brainstorm the class responsibilities and relationships, draft the Mermaid diagram and Python skeleton, and then help implement the multi-pet task scheduler. Concrete prompts that listed the required attributes, methods, and behavior were the most helpful because they produced code and a design I could check against the project requirements.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+The early design used a `DailyPlan` class and treated planning as a per-pet responsibility. When the requirements emphasized a `Scheduler` that must process tasks across all pets, I did not keep that design unchanged: I replaced `DailyPlan` with `Scheduler` and ensured it retrieves tasks through `Owner.get_all_tasks()`. I checked the behavior with a two-pet runtime example that verified task aggregation, priority ordering, time-budget selection, and completion, and I ran the two focused pytest cases for task completion and adding a task to a pet; both passed.
 
 ---
 
