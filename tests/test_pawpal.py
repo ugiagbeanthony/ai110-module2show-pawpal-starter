@@ -166,3 +166,167 @@ def test_completing_same_recurring_task_twice_does_not_duplicate_occurrence() ->
     scheduler.mark_complete(task, completed_on=today)
 
     assert len(pet.tasks) == 2
+
+
+def test_schedule_orders_high_priority_before_earlier_low_priority_task() -> None:
+    today = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [
+            Task(
+                "Low-priority morning task",
+                10,
+                priority="low",
+                scheduled_time="07:00",
+                due_date=today,
+            ),
+            Task(
+                "High-priority evening task",
+                10,
+                priority="high",
+                scheduled_time="18:00",
+                due_date=today,
+            ),
+            Task(
+                "High-priority morning task",
+                10,
+                priority="high",
+                scheduled_time="08:00",
+                due_date=today,
+            ),
+        ],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert [
+        task.description for task in scheduler.create_schedule(30)
+    ] == [
+        "High-priority morning task",
+        "High-priority evening task",
+        "Low-priority morning task",
+    ]
+
+
+def test_find_next_available_slot_skips_overlapping_busy_intervals() -> None:
+    due_date = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [
+            Task("Walk", 30, scheduled_time="08:00", due_date=due_date),
+            Task("Medicine", 20, scheduled_time="08:20", due_date=due_date),
+            Task(
+                "Completed task",
+                30,
+                scheduled_time="08:40",
+                due_date=due_date,
+                is_completed=True,
+            ),
+        ],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.find_next_available_slot(
+        due_date, 20, start_time="08:00", end_time="09:30"
+    ) == "08:40"
+
+
+def test_find_next_available_slot_returns_none_when_window_is_full() -> None:
+    due_date = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [Task("Walk", 60, scheduled_time="08:00", due_date=due_date)],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.find_next_available_slot(
+        due_date, 15, start_time="08:00", end_time="09:00"
+    ) is None
+
+
+def test_owner_json_round_trip_preserves_pets_and_task_fields(tmp_path) -> None:
+    due_date = date(2026, 10, 17)
+    completed_task = Task(
+        "Medicine",
+        5,
+        frequency="weekly",
+        is_completed=True,
+        priority="high",
+        scheduled_time="08:30",
+        due_date=due_date,
+    )
+    owner = Owner("Jordan", [Pet("Mochi", "dog", [completed_task])])
+    data_file = tmp_path / "data.json"
+
+    owner.save_to_json(data_file)
+    loaded_owner = Owner.load_from_json(data_file)
+
+    assert loaded_owner.name == owner.name
+    assert len(loaded_owner.pets) == 1
+    assert loaded_owner.pets[0].name == "Mochi"
+    assert loaded_owner.pets[0].tasks == [completed_task]
+
+
+def test_priority_scheduler_orders_priority_before_time() -> None:
+    today = date(2026, 10, 17)
+    tasks = [
+        Task("Earlier medium", 10, priority="medium", scheduled_time="07:00", due_date=today),
+        Task("Later high", 10, priority="high", scheduled_time="18:00", due_date=today),
+        Task("Earlier high", 10, priority="high", scheduled_time="08:00", due_date=today),
+        Task("Low", 10, priority="low", scheduled_time="06:00", due_date=today),
+    ]
+    scheduler = Scheduler(Owner("Jordan", [Pet("Mochi", "dog", tasks)]))
+
+    assert [task.description for task in scheduler.sort_by_priority_and_time()] == [
+        "Earlier high",
+        "Later high",
+        "Earlier medium",
+        "Low",
+    ]
+
+
+def test_find_next_available_slot_skips_overlapping_intervals() -> None:
+    due_date = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [
+            Task("Walk", 30, scheduled_time="08:00", due_date=due_date),
+            Task("Medicine", 20, scheduled_time="08:20", due_date=due_date),
+        ],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.find_next_available_slot(
+        due_date, 20, start_time="08:00", end_time="09:30"
+    ) == "08:40"
+
+
+def test_find_next_available_slot_returns_none_when_no_gap_fits() -> None:
+    due_date = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [Task("Walk", 60, scheduled_time="08:00", due_date=due_date)],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.find_next_available_slot(
+        due_date, 15, start_time="08:00", end_time="09:00"
+    ) is None
+
+
+def test_find_next_available_slot_uses_free_gap_before_first_task() -> None:
+    due_date = date(2026, 10, 17)
+    pet = Pet(
+        "Mochi",
+        "dog",
+        [Task("Walk", 20, scheduled_time="08:30", due_date=due_date)],
+    )
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.find_next_available_slot(
+        due_date, 20, start_time="08:00", end_time="09:00"
+    ) == "08:00"

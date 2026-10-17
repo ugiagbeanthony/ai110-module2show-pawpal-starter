@@ -35,7 +35,7 @@ def main() -> None:
             "Serve breakfast",
             5,
             frequency="daily",
-            priority="high",
+            priority="medium",
             scheduled_time="07:00",
         )
     )
@@ -70,6 +70,15 @@ def main() -> None:
     else:
         print("- No exact-time conflicts found.")
 
+    next_slot = scheduler.find_next_available_slot(
+        due_date=date.today(),
+        duration_minutes=20,
+        start_time="07:00",
+        end_time="10:00",
+    )
+    print("\nNext available 20-minute slot:")
+    print(f"- {next_slot if next_slot is not None else 'No slot available'}")
+
     recurring_task = dog.tasks[0]
     scheduler.mark_complete(recurring_task)
     next_occurrence = next(
@@ -85,8 +94,8 @@ def main() -> None:
     )
 
     available_minutes = 45
-    schedule = scheduler.sort_by_time(scheduler.create_schedule(available_minutes))
-    print("\nToday's Schedule")
+    schedule = scheduler.create_schedule(available_minutes)
+    print("\nToday's Priority-Based Schedule")
     print(f"Owner: {owner.name} | Available time: {available_minutes} minutes")
     for task in schedule:
         print(f"- {pet_by_task_id.get(id(task), 'Pet')}: {task.describe()}")

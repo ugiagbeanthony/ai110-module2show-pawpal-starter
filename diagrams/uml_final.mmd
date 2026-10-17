@@ -1,0 +1,55 @@
+classDiagram
+    class Task {
+        +description: str
+        +duration_minutes: int
+        +frequency: str
+        +is_completed: bool
+        +priority: str
+        +scheduled_time: str
+        +due_date: date
+        +__post_init__() None
+        +mark_complete() None
+        +next_occurrence(completed_on: date | None) Task | None
+        +describe() str
+        +to_dict() dict
+        +from_dict(data: dict) Task
+    }
+
+    class Pet {
+        +name: str
+        +species: str
+        +tasks: list~Task~
+        +__post_init__() None
+        +add_task(task: Task) None
+        +remove_task(task: Task) None
+    }
+
+    class Owner {
+        +name: str
+        +pets: list~Pet~
+        +__post_init__() None
+        +add_pet(pet: Pet) None
+        +remove_pet(pet: Pet) None
+        +get_all_tasks() list~Task~
+        +to_dict() dict
+        +save_to_json(path: str | Path) None
+        +load_from_json(path: str | Path) Owner
+    }
+
+    class Scheduler {
+        +owner: Owner
+        +get_all_tasks() list~Task~
+        +sort_by_time(tasks: list~Task~ | None) list~Task~
+        +sort_by_priority_and_time(tasks: list~Task~ | None) list~Task~
+        +filter_tasks(pet_name: str | None, is_completed: bool | None) list~Task~
+        +detect_conflicts(tasks: list~Task~ | None) list~str~
+        +find_next_available_slot(due_date: date, duration_minutes: int, start_time: str, end_time: str) str | None
+        +organize_tasks() list~Task~
+        +create_schedule(available_minutes: int) list~Task~
+        +mark_complete(task: Task, completed_on: date | None) None
+    }
+
+    Owner "1" o-- "0..*" Pet : manages
+    Pet "1" *-- "0..*" Task : stores
+    Scheduler --> Owner : retrieves tasks through get_all_tasks
+    Scheduler ..> Task : sorts, filters, schedules, repeats

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 
 @dataclass
@@ -68,6 +70,50 @@ class Task:
             f"{self.frequency}, {self.priority} priority, {status})"
         )
 
+    def to_dict(self) -> dict[str, object]:
+        """Convert task fields into JSON-compatible values."""
+        return {
+            "description": self.description,
+            "duration_minutes": self.duration_minutes,
+            "frequency": self.frequency,
+            "is_completed": self.is_completed,
+            "priority": self.priority,
+            "scheduled_time": self.scheduled_time,
+            "due_date": self.due_date.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> Task:
+        """Build a validated task from a JSON-decoded dictionary."""
+        description = data.get("description")
+        frequency = data.get("frequency")
+        priority = data.get("priority")
+        scheduled_time = data.get("scheduled_time")
+        due_date_text = data.get("due_date")
+        duration = data.get("duration_minutes")
+        completed = data.get("is_completed")
+        if (
+            not isinstance(description, str)
+            or not isinstance(frequency, str)
+            or not isinstance(priority, str)
+            or not isinstance(scheduled_time, str)
+            or not isinstance(due_date_text, str)
+        ):
+            raise ValueError("Task JSON is missing required text fields.")
+        if not isinstance(duration, int) or isinstance(duration, bool):
+            raise ValueError("Task duration in JSON must be an integer.")
+        if not isinstance(completed, bool):
+            raise ValueError("Task completion status in JSON must be a boolean.")
+        return cls(
+            description=description,
+            duration_minutes=duration,
+            frequency=frequency,
+            is_completed=completed,
+            priority=priority,
+            scheduled_time=scheduled_time,
+            due_date=date.fromisoformat(due_date_text),
+        )
+
 
 @dataclass
 class Pet:
@@ -120,6 +166,59 @@ class Owner:
         """Return all tasks from every pet in the owner's care."""
         return [task for pet in self.pets for task in pet.tasks]
 
+    def to_dict(self) -> dict[str, object]:
+        """Convert the owner, pets, and tasks into JSON-compatible values."""
+        return {
+            "name": self.name,
+            "pets": [
+                {
+                    "name": pet.name,
+                    "species": pet.species,
+                    "tasks": [task.to_dict() for task in pet.tasks],
+                }
+                for pet in self.pets
+            ],
+        }
+
+    def save_to_json(self, path: str | Path = "data.json") -> None:
+        """Save owner, pet, and task data as readable JSON."""
+        Path(path).write_text(
+            json.dumps(self.to_dict(), indent=2),
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load_from_json(cls, path: str | Path = "data.json") -> Owner:
+        """Load and validate an owner, pets, and tasks from a JSON file."""
+        raw_data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(raw_data, dict):
+            raise ValueError("Owner JSON must contain an object.")
+        name = raw_data.get("name")
+        pets_data = raw_data.get("pets")
+        if not isinstance(name, str) or not isinstance(pets_data, list):
+            raise ValueError("Owner JSON must contain a name and pets list.")
+
+        pets: list[Pet] = []
+        for pet_data in pets_data:
+            if not isinstance(pet_data, dict):
+                raise ValueError("Pet JSON entries must be objects.")
+            pet_name = pet_data.get("name")
+            species = pet_data.get("species")
+            tasks_data = pet_data.get("tasks")
+            if (
+                not isinstance(pet_name, str)
+                or not isinstance(species, str)
+                or not isinstance(tasks_data, list)
+            ):
+                raise ValueError("Pet JSON must contain name, species, and tasks.")
+            tasks: list[Task] = []
+            for task_data in tasks_data:
+                if not isinstance(task_data, dict):
+                    raise ValueError("Task JSON entries must be objects.")
+                tasks.append(Task.from_dict(task_data))
+            pets.append(Pet(pet_name, species, tasks))
+        return cls(name, pets)
+
 
 @dataclass
 class Scheduler:
@@ -135,6 +234,19 @@ class Scheduler:
         """Sort tasks by due date and their zero-padded HH:MM clock time."""
         tasks_to_sort = self.owner.get_all_tasks() if tasks is None else tasks
         return sorted(tasks_to_sort, key=lambda task: (task.due_date, task.scheduled_time))
+
+    def sort_by_priority_and_time(self, tasks: list[Task] | None = None) -> list[Task]:
+        """Sort tasks by high-to-low priority, then date and scheduled time."""
+        tasks_to_sort = self.owner.get_all_tasks() if tasks is None else tasks
+        priority_rank = {"high": 0, "medium": 1, "low": 2}
+        return sorted(
+            tasks_to_sort,
+            key=lambda task: (
+                priority_rank[task.priority],
+                task.due_date,
+                task.scheduled_time,
+            ),
+        )
 
     def filter_tasks(
         self,
@@ -183,22 +295,58 @@ class Scheduler:
             )
         return warnings
 
+    def find_next_available_slot(
+        self,
+        due_date: date,
+        duration_minutes: int,
+        start_time: str = "07:00",
+        end_time: str = "22:00",
+    ) -> str | None:
+        """Find the earliest free time slot without overlapping pending tasks."""
+        if duration_minutes <= 0:
+            raise ValueError("Task duration must be greater than zero minutes.")
+        try:
+            start = datetime.strptime(start_time, "%H:%M")
+            end = datetime.strptime(end_time, "%H:%M")
+        except ValueError as error:
+            raise ValueError("Search times must use HH:MM 24-hour format.") from error
+        if start.strftime("%H:%M") != start_time or end.strftime("%H:%M") != end_time:
+            raise ValueError("Search times must use HH:MM 24-hour format.")
+
+        start_minute = start.hour * 60 + start.minute
+        end_minute = end.hour * 60 + end.minute
+        if end_minute <= start_minute:
+            raise ValueError("Search end time must be after the start time.")
+
+        busy_intervals: list[tuple[int, int]] = []
+        for task in self.owner.get_all_tasks():
+            if task.is_completed or task.due_date != due_date:
+                continue
+            task_start = datetime.strptime(task.scheduled_time, "%H:%M")
+            task_start_minute = task_start.hour * 60 + task_start.minute
+            busy_intervals.append(
+                (task_start_minute, task_start_minute + task.duration_minutes)
+            )
+        busy_intervals.sort()
+        candidate = start_minute
+        for busy_start, busy_end in busy_intervals:
+            if candidate + duration_minutes <= busy_start:
+                break
+            if candidate < busy_end:
+                candidate = busy_end
+
+        if candidate + duration_minutes > end_minute:
+            return None
+        return f"{candidate // 60:02d}:{candidate % 60:02d}"
+
     def organize_tasks(self) -> list[Task]:
-        """Return due pending tasks ordered by priority, then shorter duration."""
-        priority_order = {"high": 0, "medium": 1, "low": 2}
+        """Return due pending tasks ordered by priority, date, then time."""
         pending_tasks = [
             task
             for task in self.owner.get_all_tasks()
             if not task.is_completed and task.due_date <= date.today()
         ]
-        return sorted(
-            pending_tasks,
-            key=lambda task: (
-                priority_order[task.priority],
-                task.duration_minutes,
-                task.description.casefold(),
-            ),
-        )
+        return self.sort_by_priority_and_time(pending_tasks)
 
     def create_schedule(self, available_minutes: int) -> list[Task]:
         """Select priority-ordered pending tasks that fit the time budget."""
