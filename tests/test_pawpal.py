@@ -131,3 +131,38 @@ def test_detect_conflicts_ignores_different_times_and_completed_tasks() -> None:
 
     assert scheduler.detect_conflicts() == []
     assert scheduler.detect_conflicts([pet.tasks[0], pet.tasks[2]]) == []
+
+
+def test_scheduler_returns_empty_results_when_owner_has_no_pets() -> None:
+    scheduler = Scheduler(Owner("Jordan"))
+
+    assert scheduler.get_all_tasks() == []
+    assert scheduler.sort_by_time() == []
+    assert scheduler.filter_tasks() == []
+    assert scheduler.detect_conflicts() == []
+    assert scheduler.create_schedule(60) == []
+
+
+def test_schedule_excludes_future_due_tasks() -> None:
+    future_task = Task(
+        "Future checkup",
+        30,
+        scheduled_time="08:00",
+        due_date=date.today() + timedelta(days=1),
+    )
+    pet = Pet("Mochi", "dog", [future_task])
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    assert scheduler.create_schedule(60) == []
+
+
+def test_completing_same_recurring_task_twice_does_not_duplicate_occurrence() -> None:
+    today = date(2026, 10, 17)
+    task = Task("Walk", 20, frequency="daily", due_date=today)
+    pet = Pet("Mochi", "dog", [task])
+    scheduler = Scheduler(Owner("Jordan", [pet]))
+
+    scheduler.mark_complete(task, completed_on=today)
+    scheduler.mark_complete(task, completed_on=today)
+
+    assert len(pet.tasks) == 2

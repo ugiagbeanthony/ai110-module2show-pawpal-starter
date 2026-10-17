@@ -60,26 +60,28 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 
 ## 🧪 Testing PawPal+
 
+Run the test suite from the repository root:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+The tests cover task completion and addition, chronological sorting, filtering by pet and completion state, daily and weekly recurrence, conflict detection, empty-owner behavior, future-due task exclusion, and preventing duplicate recurrence when completing a task twice.
 
-Today's Schedule
-Owner: Jordan | Available time: 45 minutes
-- Serve breakfast (5 min, daily, high priority, pending)
-- Morning walk (30 min, daily, high priority, pending)
-- Brush coat (10 min, weekly, low priority, pending)
-Total scheduled: 45 minutes
+Successful test run:
 
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\bbydr\ai110-module2show-pawpal-starter
+collected 11 items
+
+tests\test_pawpal.py ...........                                         [100%]
+
+============================= 11 passed in 0.06s ==============================
 ```
-# Paste your pytest output here
-```
+
+**Confidence level:** ★★★★☆ (4/5). The core model and scheduler behaviors listed above pass automated tests; broader UI interaction, date-boundary, and partial-overlap scenarios could use more dedicated tests.
 
 ## Smarter Scheduling
 
