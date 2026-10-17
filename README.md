@@ -44,7 +44,7 @@ pip install -r requirements.txt
 
 ## Implementation summary
 
-`Task` stores a care activity's description, duration, frequency, priority, and completion status. `Pet` owns its care tasks, and `Owner` manages multiple pets and returns their combined tasks through `get_all_tasks()`. `Scheduler` retrieves tasks through that owner method, sorts pending tasks by priority and duration, and selects tasks that fit a time budget. Run `python main.py` for a small terminal demo; the Streamlit interface is not yet connected to this backend.
+`Task` stores a care activity's description, duration, frequency, priority, completion status, due date, and scheduled time. `Pet` owns its care tasks, and `Owner` manages multiple pets and returns their combined tasks through `get_all_tasks()`. `Scheduler` retrieves tasks through that owner method, sorts and filters them, selects tasks that fit a time budget, reports exact-time conflicts, and adds the next daily or weekly occurrence when a task is completed. The Streamlit app stores its `Owner` in `st.session_state` so pets and tasks persist across reruns; its forms call the model methods to add pets and tasks, complete tasks, and generate a schedule. Run `streamlit run app.py` for the interactive app or `python main.py` for a terminal demo.
 
 ## 🖥️ Sample Output
 
@@ -81,16 +81,15 @@ Total scheduled: 45 minutes
 # Paste your pytest output here
 ```
 
-## 📐 Smarter Scheduling
+## Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+- **Sort by time:** `Scheduler.sort_by_time()` sorts by due date and zero-padded `HH:MM` time.
+- **Filter tasks:** `Scheduler.filter_tasks()` can filter across all pets by a case-insensitive pet name, completion status, or both.
+- **Select tasks for the day:** `Scheduler.organize_tasks()` excludes completed and future-due tasks, then sorts by priority and duration; `create_schedule()` selects tasks that fit the available minutes.
+- **Detect conflicts:** `Scheduler.detect_conflicts()` returns warning strings when pending tasks for any pets share the same due date and exact start time.
+- **Repeat care tasks:** `Task.next_occurrence()` creates a fresh daily or weekly task using `timedelta`; `Scheduler.mark_complete()` adds that next occurrence to the same pet.
 
-| Feature | Method(s) | Notes |
-|---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+Run `python main.py` to see sorting, pet/status filtering, recurrence, and conflict warnings in the terminal.
 
 ## 📸 Demo Walkthrough
 

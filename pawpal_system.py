@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 
 
 @dataclass
@@ -14,12 +15,15 @@ class Task:
     frequency: str = "daily"
     is_completed: bool = False
     priority: str = "medium"
+    scheduled_time: str = "09:00"
+    due_date: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
         """Normalize task text and validate its scheduling fields."""
         self.description = self.description.strip()
-        self.frequency = self.frequency.strip()
+        self.frequency = self.frequency.strip().lower()
         self.priority = self.priority.strip().lower()
+        self.scheduled_time = self.scheduled_time.strip()
         if not self.description:
             raise ValueError("Task description cannot be empty.")
         if self.duration_minutes <= 0:
@@ -28,16 +32,39 @@ class Task:
             raise ValueError("Task frequency cannot be empty.")
         if self.priority not in {"low", "medium", "high"}:
             raise ValueError("Task priority must be low, medium, or high.")
+        try:
+            parsed_time = datetime.strptime(self.scheduled_time, "%H:%M")
+        except ValueError as error:
+            raise ValueError("Scheduled time must use HH:MM 24-hour format.") from error
+        if parsed_time.strftime("%H:%M") != self.scheduled_time:
+            raise ValueError("Scheduled time must use HH:MM 24-hour format.")
 
     def mark_complete(self) -> None:
         """Mark this task as completed."""
         self.is_completed = True
 
+    def next_occurrence(self, completed_on: date | None = None) -> Task | None:
+        """Create the next daily or weekly occurrence after the completion date."""
+        interval_days = {"daily": 1, "weekly": 7}.get(self.frequency)
+        if interval_days is None:
+            return None
+
+        base_date = max(self.due_date, completed_on or date.today())
+        return Task(
+            description=self.description,
+            duration_minutes=self.duration_minutes,
+            frequency=self.frequency,
+            priority=self.priority,
+            scheduled_time=self.scheduled_time,
+            due_date=base_date + timedelta(days=interval_days),
+        )
+
     def describe(self) -> str:
         """Return a readable summary of this task."""
         status = "completed" if self.is_completed else "pending"
         return (
-            f"{self.description} ({self.duration_minutes} min, "
+            f"{self.scheduled_time} {self.description} "
+            f"({self.duration_minutes} min, "
             f"{self.frequency}, {self.priority} priority, {status})"
         )
 
@@ -104,11 +131,65 @@ class Scheduler:
         """Retrieve tasks through the owner's multi-pet accessor."""
         return self.owner.get_all_tasks()
 
+    def sort_by_time(self, tasks: list[Task] | None = None) -> list[Task]:
+        """Sort tasks by due date and their zero-padded HH:MM clock time."""
+        tasks_to_sort = self.owner.get_all_tasks() if tasks is None else tasks
+        return sorted(tasks_to_sort, key=lambda task: (task.due_date, task.scheduled_time))
+
+    def filter_tasks(
+        self,
+        pet_name: str | None = None,
+        is_completed: bool | None = None,
+    ) -> list[Task]:
+        """Filter all owner tasks by pet name, completion state, or both."""
+        matching_tasks: list[Task] = []
+        for pet in self.owner.pets:
+            if pet_name is not None and pet.name.casefold() != pet_name.strip().casefold():
+                continue
+            matching_tasks.extend(
+                task
+                for task in pet.tasks
+                if is_completed is None or task.is_completed is is_completed
+            )
+        return matching_tasks
+
+    def detect_conflicts(self, tasks: list[Task] | None = None) -> list[str]:
+        """Return warnings for pending tasks with the same date and start time."""
+        tasks_to_check = (
+            self.filter_tasks(is_completed=False)
+            if tasks is None
+            else [task for task in tasks if not task.is_completed]
+        )
+        task_pets = {
+            id(task): pet.name
+            for pet in self.owner.pets
+            for task in pet.tasks
+        }
+        tasks_by_slot: dict[tuple[date, str], list[Task]] = {}
+        for task in tasks_to_check:
+            slot = (task.due_date, task.scheduled_time)
+            tasks_by_slot.setdefault(slot, []).append(task)
+
+        warnings: list[str] = []
+        for (due_date, scheduled_time), tasks_at_slot in sorted(tasks_by_slot.items()):
+            if len(tasks_at_slot) < 2:
+                continue
+            descriptions = ", ".join(
+                f"{task_pets.get(id(task), 'Unknown pet')}: {task.description}"
+                for task in tasks_at_slot
+            )
+            warnings.append(
+                f"Warning: {descriptions} share {scheduled_time} on {due_date:%Y-%m-%d}."
+            )
+        return warnings
+
     def organize_tasks(self) -> list[Task]:
-        """Return pending tasks ordered by priority, then shorter duration."""
+        """Return due pending tasks ordered by priority, then shorter duration."""
         priority_order = {"high": 0, "medium": 1, "low": 2}
         pending_tasks = [
-            task for task in self.owner.get_all_tasks() if not task.is_completed
+            task
+            for task in self.owner.get_all_tasks()
+            if not task.is_completed and task.due_date <= date.today()
         ]
         return sorted(
             pending_tasks,
@@ -132,8 +213,22 @@ class Scheduler:
                 remaining_minutes -= task.duration_minutes
         return scheduled_tasks
 
-    def mark_complete(self, task: Task) -> None:
-        """Mark one of this owner's tasks complete."""
-        if not any(owner_task is task for owner_task in self.owner.get_all_tasks()):
+    def mark_complete(self, task: Task, completed_on: date | None = None) -> None:
+        """Complete an owned task and add its next daily or weekly occurrence."""
+        pet = next(
+            (
+                owner_pet
+                for owner_pet in self.owner.pets
+                if any(owner_task is task for owner_task in owner_pet.tasks)
+            ),
+            None,
+        )
+        if pet is None:
             raise ValueError("Cannot complete a task that does not belong to this owner.")
+        if task.is_completed:
+            return
+
         task.mark_complete()
+        next_task = task.next_occurrence(completed_on)
+        if next_task is not None:
+            pet.add_task(next_task)

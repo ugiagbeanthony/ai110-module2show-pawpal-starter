@@ -30,6 +30,8 @@ The design changed after reviewing the skeleton and refining the requirements. I
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+Conflict detection checks only whether tasks have the exact same due date and start time; it does not compare task durations to find partial overlaps. This keeps the warning logic easy to understand and avoids implying a conflict when tasks may be rescheduled, but it can miss cases such as a 30-minute walk at 8:00 overlapping a task at 8:15. A future version could compare time intervals if more detailed scheduling is needed.
+
 ---
 
 ## 3. AI Collaboration
@@ -47,6 +49,8 @@ I used AI to brainstorm the class responsibilities and relationships, draft the 
 - How did you evaluate or verify what the AI suggested?
 
 The early design used a `DailyPlan` class and treated planning as a per-pet responsibility. When the requirements emphasized a `Scheduler` that must process tasks across all pets, I did not keep that design unchanged: I replaced `DailyPlan` with `Scheduler` and ensured it retrieves tasks through `Owner.get_all_tasks()`. I checked the behavior with a two-pet runtime example that verified task aggregation, priority ordering, time-budget selection, and completion, and I ran the two focused pytest cases for task completion and adding a task to a pet; both passed.
+
+For readability, AI review considered shortening `filter_tasks()` into a nested list comprehension. I kept the explicit pet loop because it makes the pet-name check and per-pet task filtering easier to follow; the number of tasks is small enough that a more compact form would not meaningfully improve performance.
 
 ---
 

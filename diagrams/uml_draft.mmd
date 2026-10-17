@@ -5,7 +5,10 @@ classDiagram
         +frequency: str
         +is_completed: bool
         +priority: str
+        +scheduled_time: str
+        +due_date: date
         +mark_complete() None
+        +next_occurrence(completed_on: date) Task
         +describe() str
     }
 
@@ -28,9 +31,12 @@ classDiagram
     class Scheduler {
         +owner: Owner
         +get_all_tasks() list~Task~
+        +sort_by_time(tasks: list~Task~) list~Task~
+        +filter_tasks(pet_name: str, is_completed: bool) list~Task~
+        +detect_conflicts(tasks: list~Task~) list~str~
         +organize_tasks() list~Task~
         +create_schedule(available_minutes: int) list~Task~
-        +mark_complete(task: Task) None
+        +mark_complete(task: Task, completed_on: date) None
     }
 
     Owner "1" o-- "0..*" Pet : cares for
