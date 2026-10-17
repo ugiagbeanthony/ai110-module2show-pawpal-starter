@@ -1,0 +1,39 @@
+classDiagram
+    class Owner {
+        +name: str
+        +pets: list~Pet~
+        +preferences: list~str~
+        +add_pet(pet: Pet) None
+        +remove_pet(pet: Pet) None
+        +create_daily_plan(pet: Pet, available_minutes: int) DailyPlan
+    }
+
+    class Pet {
+        +name: str
+        +species: str
+        +tasks: list~Task~
+        +add_task(task: Task) None
+        +remove_task(task: Task) None
+    }
+
+    class Task {
+        +title: str
+        +duration_minutes: int
+        +priority: str
+        +describe() str
+    }
+
+    class DailyPlan {
+        +pet: Pet
+        +available_minutes: int
+        +tasks: list~Task~
+        +explanations: list~str~
+        +build_schedule() None
+        +total_duration() int
+        +explain_schedule() list~str~
+    }
+
+    Owner "1" o-- "0..*" Pet : cares for
+    Pet "1" o-- "0..*" Task : needs
+    DailyPlan "0..*" --> "1" Pet : plans for
+    DailyPlan "0..*" --> "0..*" Task : includes

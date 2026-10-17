@@ -7,10 +7,14 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+My initial design has four classes: `Owner`, `Pet`, `Task`, and `DailyPlan`. An owner keeps basic information, preferences, and their pets. A pet stores its name, species, and care tasks. A task describes one care activity, including its title, duration, and priority. A daily plan associates a pet with the tasks selected for the day and the available time, and can explain the plan. The relationships are simple: an owner can have multiple pets, each pet can have multiple tasks, and a daily plan is for one pet and contains its selected tasks.
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+Prediction: I expect the design to stay mostly the same, but I may adjust where the scheduling behavior belongs as I implement it. For example, if building a daily plan becomes too much responsibility for `DailyPlan`, I may move the selection logic into a separate scheduler. I would make that change to keep the plan focused on storing and explaining results while keeping scheduling rules easy to test.
 
 ---
 
